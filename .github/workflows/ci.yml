@@ -1,0 +1,51 @@
+name: ci
+
+# Deploys are still a manual `bash deploy/deploy.sh` from a laptop. This workflow
+# does not deploy: pushing to the VM needs an SSH key held as a repository secret,
+# and that is a decision for whoever owns the box rather than something to set up
+# quietly. What this does do is make sure nothing lands on main that fails its own
+# tests.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - name: install
+        working-directory: server
+        run: bun install --frozen-lockfile
+      - name: typecheck
+        working-directory: server
+        run: bun run typecheck
+      - name: test
+        working-directory: server
+        # The suite does real ML-DSA-87 work: twelve enrolments across four
+        # attesters before a single assertion runs. It takes about 90 seconds.
+        run: bun test --timeout 60000
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: install
+        working-directory: web
+        run: npm ci
+      - name: build
+        # `npm run build` is tsc -b followed by vite build, so a type error fails here.
+        working-directory: web
+        run: npm run build
