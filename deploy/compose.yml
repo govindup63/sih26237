@@ -1,0 +1,25 @@
+# The VM already runs tama, filmedin, blend, hermes and syncthing behind Caddy.
+# This stack binds to loopback on a free port and touches none of them.
+services:
+  sih26237:
+    build:
+      context: ../server
+    container_name: sih26237
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - sih26237-data:/data
+    environment:
+      PORT: "8090"
+      SIH_HOST_BIND: "0.0.0.0"
+      SIH_DB_PATH: "/data/ledger.sqlite"
+    healthcheck:
+      test: ["CMD", "bun", "-e", "await fetch('http://127.0.0.1:8090/api/health').then(r=>r.ok?0:process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  sih26237-data:

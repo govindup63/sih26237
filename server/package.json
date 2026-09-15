@@ -1,0 +1,19 @@
+{
+  "name": "sih26237-server",
+  "module": "src/server.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/server.ts",
+    "start": "bun run src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@noble/post-quantum": "^0.7.1"
+  }
+}
