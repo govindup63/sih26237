@@ -1,4 +1,5 @@
 import { be32, hex, lenPrefixed, sha512, utf8 } from './bytes.ts'
+import { DEFAULT_TARDOS, tardosBiases, tardosCodeword } from './tardos.ts'
 
 /** One byte per tile, 0 selects variant A and 1 selects variant B. */
 export type Codeword = Uint8Array
@@ -98,4 +99,44 @@ export function setMismatch(recovered: Codeword, mask: Uint8Array, set: Codeword
     if (!set.some((c) => c[i] === recovered[i])) unexplained++
   }
   return unexplained
+}
+
+/**
+ * Which construction a document's codewords come from.
+ *
+ * `uniform` is an unbiased coin per tile. It is the default because the tiered
+ * verdict rule in `forensics.ts` is calibrated against it: an innocent officer's
+ * error rate is a binomial draw around one half, and the thresholds were measured
+ * against that null.
+ *
+ * `tardos` biases each tile instead, which buys an accusation score whose
+ * false-accusation rate is bounded by the construction rather than by a threshold
+ * somebody picked. It changes the null the tiered rule was measured against, so
+ * the two are not interchangeable and the scheme travels with the document.
+ */
+export type CodewordScheme = 'uniform' | 'tardos'
+
+export type CodewordSet = {
+  scheme: CodewordScheme
+  codewords: Map<string, Codeword>
+  /** Present only under Tardos; the accusation score needs them. */
+  biases: Float64Array | null
+}
+
+export function deriveCodewords(
+  scheme: CodewordScheme,
+  docKey: Uint8Array,
+  docId: string,
+  recipientFps: string[],
+  tiles: number,
+): CodewordSet {
+  if (scheme === 'tardos') {
+    const biases = tardosBiases(docKey, docId, tiles, DEFAULT_TARDOS.cutoff)
+    const codewords = new Map<string, Codeword>()
+    for (const fp of recipientFps) codewords.set(fp, tardosCodeword(docKey, docId, fp, biases))
+    return { scheme, codewords, biases }
+  }
+  const codewords = new Map<string, Codeword>()
+  for (const fp of recipientFps) codewords.set(fp, deriveCodeword(docKey, docId, fp, tiles))
+  return { scheme, codewords, biases: null }
 }

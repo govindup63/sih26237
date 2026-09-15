@@ -246,6 +246,7 @@ const routes: Record<string, Handler> = {
     try {
       sealed = world.cards.unlock(world.senderName, pin ?? '', (card) =>
         sealVariantPackage({
+        codewordScheme: CONFIG.codewordScheme,
           sender: card,
           recipients: recipients.map((n) => publicOfficer(world, n)),
           image,
@@ -270,6 +271,7 @@ const routes: Record<string, Handler> = {
       seed: sealed.seed,
       grid: sealed.grid,
       codewords: sealed.codewords,
+      biases: sealed.biases,
       commitSalts: new Map(),
     })
     world.sealed.set(docId, {

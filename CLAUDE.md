@@ -77,9 +77,17 @@ cannot reach 127.0.0.1; exposure is bounded by the host side mapping, which is l
 
 ## Not built
 
-- Tardos collusion secure codes. Symmetric Tardos needs about 272 tiles for c=2 at eps=1e-3 against
-  the 128 here, and the two tier set rule already names the whole colluding set.
-- A public DNS record to turn the demo into the judges' link.
+- Deploy automation. CI runs on every push; deploying is still `bash deploy/deploy.sh` by hand.
+  Automating it needs an SSH key as a repository secret, and that host is shared with a teammate's
+  own release process for the public frontend, so it is a coordination question before a technical
+  one.
+
+Tardos codes WERE built, after the reason for skipping them turned out to be wrong. The claim was
+that 128 tiles is too short; `scripts/tardossweep.ts --focused` measures it instead. At cutoff 0.45
+and threshold 5 the scheme catches one or two colluders essentially always and never named an
+innocent officer in 18,000 trials. It is off by default (`SIH_CODEWORD_SCHEME=tardos` turns it on)
+because the tiered verdict rule in `forensics.ts` is calibrated against the uniform null, and the
+two schemes are not interchangeable.
 
 ## House rules
 

@@ -46,6 +46,8 @@ export type ForensicEntry = {
   grid: Grid
   codewords: Map<string, Codeword>
   commitSalts: Map<string, Uint8Array>
+  /** Set when the document was sealed under Tardos; the score needs them. */
+  biases?: Float64Array | null
 }
 
 export type Keystore = Map<string, ForensicEntry>

@@ -205,6 +205,7 @@ function restoreDocuments(world: World, session: string): void {
       docKey: string
       seed: string
       codewords: [string, string][]
+      biases: number[] | null
       commitSalts: [string, string][]
     }
     world.sealed.set(d.docId, {
@@ -223,6 +224,7 @@ function restoreDocuments(world: World, session: string): void {
       seed: unb64(d.seed),
       grid: gridFor(image.width, image.height, d.pkg.manifest.wm.gridW, d.pkg.manifest.wm.gridH),
       codewords: new Map(d.codewords.map(([fp, cw]) => [fp, unb64(cw)])),
+      biases: d.biases ? Float64Array.from(d.biases) : null,
       commitSalts: new Map(d.commitSalts.map(([fp, salt]) => [fp, unb64(salt)])),
     })
     // The document is also a source the cabin can seal again.
@@ -299,6 +301,7 @@ export function persistDocument(world: World, session: string, docId: string): v
       docKey: b64(entry.docKey),
       seed: b64(entry.seed),
       codewords: [...entry.codewords.entries()].map(([fp, cw]) => [fp, b64(cw)]),
+      biases: entry.biases ? [...entry.biases] : null,
       commitSalts: [...entry.commitSalts.entries()].map(([fp, salt]) => [fp, b64(salt)]),
     }),
   )

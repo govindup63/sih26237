@@ -22,6 +22,12 @@ export const CONFIG = {
   imageWidth: num('SIH_IMAGE_W', 512),
   imageHeight: num('SIH_IMAGE_H', 512),
   gridW: num('SIH_GRID_W', 16),
+  /*
+   * Which codeword construction to seal with. Uniform is the default because the
+   * tiered verdict rule is calibrated against its null; tardos is measured in
+   * scripts/tardossweep.ts and swaps in whole.
+   */
+  codewordScheme: (process.env.SIH_CODEWORD_SCHEME === 'tardos' ? 'tardos' : 'uniform') as 'uniform' | 'tardos',
   gridH: num('SIH_GRID_H', 8),
 
   /**

@@ -1,6 +1,7 @@
 import { short } from './bytes.ts'
 import { CONFIG } from './config.ts'
 import { hammingOnMask, setMismatch, verifyCommit, type Codeword } from './codeword.ts'
+import { DEFAULT_TARDOS, tardosAccuse, type TardosCandidate } from './tardos.ts'
 import { readImage, registerTo, type DetectParams, type Reading } from './detect.ts'
 import { isIssuance, OfflineLedger, type IssuanceRecord } from './ledger.ts'
 import type { Keystore } from './pipeline.ts'
@@ -48,6 +49,13 @@ export type ProofBundle = {
     resized: boolean
   } | null
   candidates: Candidate[]
+  /*
+   * Present only for documents sealed under Tardos. It is reported beside the
+   * tiered verdict rather than replacing it: two scorers that were built from
+   * different assumptions and agree is worth more than either alone, and where
+   * they disagree the reader should see that rather than be handed one answer.
+   */
+  tardos: { threshold: number; scores: TardosCandidate[] } | null
   checks: ForensicCheck[]
   tiles: { index: number; z: number; bit: number; readable: boolean }[]
   summary: string
@@ -332,6 +340,7 @@ export function traceLeak(args: {
     verdict,
     docId: bestDocId,
     docName: bestEntry.docName,
+    tardos: tardosReport(bestEntry, bestReading, issued),
     documentsConsidered: docIds.length,
     reading: {
       readableCount: bestReading.readableCount,
@@ -343,6 +352,26 @@ export function traceLeak(args: {
     checks,
     tiles: bestReading.tiles.map((x) => ({ index: x.index, z: x.z, bit: x.bit, readable: x.readable })),
     summary: verdictDetail(verdict),
+  }
+}
+
+/**
+ * The Tardos score for every issued copy, when the document was sealed that way.
+ *
+ * Returns null for a uniform document rather than scoring it anyway: the
+ * statistic assumes the biases the codewords were drawn against, and running it
+ * on an unbiased word produces a number that looks like evidence and is not.
+ */
+function tardosReport(
+  entry: NonNullable<ReturnType<Keystore['get']>>,
+  reading: Reading,
+  issued: { name: string; fp: string; codeword: Codeword }[],
+): { threshold: number; scores: TardosCandidate[] } | null {
+  const biases = entry.biases
+  if (!biases || biases.length !== reading.codeword.length) return null
+  return {
+    threshold: DEFAULT_TARDOS.threshold,
+    scores: tardosAccuse(reading.codeword, reading.mask, issued, biases, DEFAULT_TARDOS),
   }
 }
 
@@ -434,6 +463,7 @@ function empty(reason: string, checks: ForensicCheck[], documentsConsidered: num
     documentsConsidered,
     reading: null,
     candidates: [],
+    tardos: null,
     checks,
     tiles: [],
     summary: `No name is given. ${reason}.`,

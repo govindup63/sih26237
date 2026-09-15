@@ -13,7 +13,7 @@ import {
 } from './cnsa.ts'
 import type { CardSession } from './cards.ts'
 import { docSeed, seedCommit } from './carrier.ts'
-import { deriveCodeword, type Codeword } from './codeword.ts'
+import { deriveCodewords, type Codeword, type CodewordScheme } from './codeword.ts'
 import { boxLeaf, merkleProof, merkleRoot, verifyProof } from './merkle.ts'
 import type { Bitmap } from './png.ts'
 import { readTile, type Grid, type TileRect } from './tiles.ts'
@@ -45,6 +45,13 @@ export type WmSpec = {
   bandHi: number
   /** Proves at trial that the forensic service used the seed committed at seal time. */
   seedCommit: string
+  /*
+   * Which codeword construction this document was sealed with. It has to be in
+   * the signed manifest: the forensic side scores a Tardos document with the
+   * Tardos statistic and a uniform one with the tiered rule, and getting that
+   * backwards silently changes what the verdict means.
+   */
+  codewords: CodewordScheme
 }
 
 export type Manifest = {
@@ -144,6 +151,8 @@ export type SealResult = {
   /** Forensic side only. */
   seed: Uint8Array
   codewords: Map<string, Codeword>
+  /** Per-tile Tardos biases, or null under the uniform scheme. */
+  biases: Float64Array | null
   grid: Grid
   quality: { psnrAB: number; ssimAB: number }
 }
@@ -166,9 +175,11 @@ export function sealVariantPackage(args: {
   gridW: number
   gridH: number
   embed: Omit<EmbedParams, 'spec'> & { spec: EmbedParams['spec'] }
+  codewordScheme?: CodewordScheme
   trace?: Trace
 }): SealResult {
   const { sender, recipients, image, docName, serverWmKey, gridW, gridH, embed } = args
+  const codewordScheme: CodewordScheme = args.codewordScheme ?? 'uniform'
   const tr = args.trace
   if (recipients.length === 0) throw new CnsaError('no_recipients', 'pick at least one recipient')
 
@@ -231,11 +242,11 @@ export function sealVariantPackage(args: {
     ],
   )
 
-  const codewords = new Map<string, Codeword>()
+  const codewordSet = deriveCodewords(codewordScheme, docKey, docId, recipients.map((r) => r.fp), tiles)
+  const codewords = codewordSet.codewords
   const slots: Slot[] = []
   for (const r of recipients) {
-    const codeword = deriveCodeword(docKey, docId, r.fp, tiles)
-    codewords.set(r.fp, codeword)
+    const codeword = codewords.get(r.fp)!
 
     const bundle = new Uint8Array(tiles * BUNDLE_ENTRY)
     for (const rect of grid.tiles) {
@@ -274,6 +285,7 @@ export function sealVariantPackage(args: {
     suite: { kem: SUITE.kem, sig: SUITE.sig, aead: SUITE.aead, kdf: SUITE.kdf, hash: SUITE.hash },
     wm: {
       scheme: 'ab-variant/1',
+      codewords: codewordScheme,
       gridW,
       gridH,
       tiles,
@@ -308,6 +320,7 @@ export function sealVariantPackage(args: {
     docKey,
     seed,
     codewords,
+    biases: codewordSet.biases,
     grid,
     quality: { psnrAB: worstPsnr, ssimAB: 0 },
   }
